@@ -1,52 +1,128 @@
-const int buttonPin = 23;
-const int ledPin =  2;
+// ----------------------------------
+// Pins
+// ----------------------------------
+
+// general io
+
+const int btnPin = 23;
+const int ledPin = 32;
+
+// stepper
+
+const int mtrStepPin = 19;
+const int mtrDirPin = 18;
+const int mtrEnPin = 5;
+const int mtrMs1Pin = 17;
+const int mtrMs2Pin = 16;
+
+
+// ----------------------------------
+// Services
+// ----------------------------------
+
+// stepper
+
+const double mtrPwmfreq = 10000;
+const int mtrPwmResolution = 2;
+const int mtrPwmChannel = 0;
+
+void mtrInit() {
+    pinMode(mtrDirPin, OUTPUT);
+    pinMode(mtrStepPin, OUTPUT);
+    pinMode(mtrEnPin, OUTPUT);
+    pinMode(mtrMs1Pin, OUTPUT);
+    pinMode(mtrMs2Pin, OUTPUT);
+
+    // disable
+    digitalWrite(mtrEnPin, HIGH);
+
+    // 1/16 microstepping
+    digitalWrite(mtrMs1Pin, HIGH);
+    digitalWrite(mtrMs2Pin, HIGH);
+    
+    // configure PWM
+    ledcSetup(mtrPwmChannel, mtrPwmfreq, mtrPwmResolution);
+    ledcWrite(mtrPwmChannel, 0);
+
+    ledcAttachPin(ledPin, mtrPwmChannel);
+    ledcAttachPin(mtrStepPin, mtrPwmChannel);
+}
+
+void mtrSet(bool isEnabled, float rpm) {
+    digitalWrite(mtrEnPin, isEnabled ? LOW : HIGH);
+    if (rpm != 0) {
+        if (rpm < 0) {
+            digitalWrite(mtrDirPin, HIGH);
+            rpm = -1 * rpm;
+        } else {
+            digitalWrite(mtrDirPin, LOW);
+        }
+
+        ledcWrite(mtrPwmChannel, 1);
+    } else {
+        ledcWrite(mtrPwmChannel, 0);
+    }
+}
+
+
+// button
 
 const unsigned long bntDebounceDelay = 50;
 unsigned long bntLastDebounceTime = 0;
-bool bntLastReading = 0;
-bool isButtonOn = 0;
-bool hasButtonSwitched = 0;
+bool bntLastReading = false;
+bool btnIsPressed = false;
+bool btnHasSwitched = false;
 
-void readButton() {
-  bool reading = digitalRead(buttonPin) == LOW;
-  if (reading != bntLastReading) {
-    bntLastDebounceTime = millis();
-  }
-  bntLastReading = reading;
-  hasButtonSwitched = false;
-  if ((millis() - bntLastDebounceTime) > bntDebounceDelay) {
-    if (reading != isButtonOn) {
-      hasButtonSwitched = true;
+void btnRead() {
+    bool reading = digitalRead(btnPin) == LOW;
+    if (reading != bntLastReading) {
+        bntLastDebounceTime = millis();
     }
-    isButtonOn = reading;
-  }
+    bntLastReading = reading;
+    btnHasSwitched = false;
+    if ((millis() - bntLastDebounceTime) > bntDebounceDelay) {
+        if (reading != btnIsPressed) {
+            btnHasSwitched = true;
+        }
+        btnIsPressed = reading;
+    }
 }
 
 
+// ----------------------------------
+// Main
+// ----------------------------------
+
 void setup() {
-  // initialize the LED pin as an output:
-  pinMode(ledPin, OUTPUT);
-  // initialize the pushbutton pin as an input:
-  pinMode(buttonPin, INPUT_PULLUP);
+    pinMode(ledPin, OUTPUT);
+    pinMode(btnPin, INPUT_PULLUP);
+    mtrInit();
 
-  Serial.begin(115200);
-  while (!Serial) {// wait for serial port to connect. Needed for native USB
-  }
+    Serial.begin(115200);
+    while (!Serial) {
+        // wait for serial port to connect. Needed for native USB
+    }
 
-  Serial.println("started");
+    Serial.println("---");
+    Serial.println("started");
 }
 
 void loop() {
-  readButton();
+    btnRead();
 
-  if (hasButtonSwitched) {
-    Serial.print("button ");
-    Serial.println(isButtonOn);
-  }
+    if (btnHasSwitched) {
+        Serial.print("button ");
+        Serial.println(btnIsPressed);
 
-  if (isButtonOn) {
-    digitalWrite(ledPin, HIGH);
-  } else {
-    digitalWrite(ledPin, LOW);
-  }
+        if (btnIsPressed) {
+            mtrSet(true, 1);
+        } else {
+            mtrSet(false, 0);
+        }
+
+        Serial.print("freq ");
+        Serial.println(ledcReadFreq(mtrPwmChannel));
+    }
+
+    // digitalWrite(ledPin, btnIsPressed);
 }
