@@ -22,7 +22,7 @@ const int mtrMs2Pin = 16;
 
 // stepper
 
-const int mtrPwmResolution = 2;
+const int mtrPwmResolution = 10;
 const int mtrPwmChannel = 0;
 
 void mtrInit() {
@@ -59,7 +59,7 @@ void mtrSet(bool isEnabled, float rpm) {
         // TODO convert rmp to freq
         float mtrPwmfreq = rpm;
         ledcSetup(mtrPwmChannel, mtrPwmfreq, mtrPwmResolution);
-        ledcWrite(mtrPwmChannel, 1);
+        ledcWrite(mtrPwmChannel, 0x1FF);
     } else {
         ledcWrite(mtrPwmChannel, 0);
     }
@@ -70,6 +70,7 @@ long mtrRampDeltaTimeInMs = 0;
 float mtrRampStartFreq = 0;
 float mtrRampDeltaFreq = 0;
 bool mtrIsRampDone = false;
+long mtrRampLastCycleInMs = 0;
 
 void mtrRampInit(long timeInMs, float fromRmp, float toRmp, float rmpPerSec) {
     // TODO convert rmp to freq
@@ -80,9 +81,10 @@ void mtrRampInit(long timeInMs, float fromRmp, float toRmp, float rmpPerSec) {
     mtrRampStartFreq = fromFreq;
 
     mtrRampDeltaFreq = toFreq - fromFreq;
-    mtrRampDeltaTimeInMs = (1000 * mtrRampDeltaFreq) / rmpPerSec;
+    mtrRampDeltaTimeInMs = (1000 * abs(mtrRampDeltaFreq)) / rmpPerSec;
 
     mtrIsRampDone = false;
+    mtrRampLastCycleInMs = 0;
     mtrSet(true, fromRmp);
 
     Serial.print("ramp: ");
@@ -96,6 +98,9 @@ void mtrRampCycle(long timeInMs) {
     if (mtrIsRampDone) {
         return;
     }
+    if ((timeInMs - mtrRampLastCycleInMs) < 100) {
+        return;
+    }
 
     float rate = (float)(timeInMs - mtrRampStartTimeInMs) / mtrRampDeltaTimeInMs;
     float freq = 0;
@@ -106,6 +111,8 @@ void mtrRampCycle(long timeInMs) {
         mtrIsRampDone = true;
     }
     ledcWriteTone(mtrPwmChannel, freq);
+
+    mtrRampLastCycleInMs = timeInMs;
 }
 
 // button
@@ -159,16 +166,16 @@ void loop() {
     btnRead();
 
     if (btnHasSwitched) {
-        Serial.print("button ");
-        Serial.println(btnIsPressed);
         if (!btnIsPressed) {
             if (isRunning) {
                 mtrSet(false, 0);
                 isRunning = false;
             } else {
-                mtrRampInit(timeInMs, 200, 5000, 10000);
+                mtrRampInit(timeInMs, 10, 200, 50);
                 isRunning = true;
             }
+            Serial.print("isRunning ");
+            Serial.println(isRunning);
         }
     }
 
@@ -189,5 +196,5 @@ void loop() {
 
     digitalWrite(ledPin, isRunning);
 
-    delay(10);
+    delay(5);
 }
