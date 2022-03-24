@@ -15,6 +15,14 @@ const int mtrEnPin = 5;
 const int mtrMs1Pin = 17;
 const int mtrMs2Pin = 16;
 
+// Turn ratio
+// Signal -> Driver -> Motor -> Gear
+
+const float gearRatio = 90.0 / 20.0;
+const float mtrRatio = 360 / 1.8;
+const float driverRatio = 8;
+const int stepPerTurn = driverRatio * mtrRatio * gearRatio;
+
 
 // ----------------------------------
 // Services
@@ -24,6 +32,7 @@ const int mtrMs2Pin = 16;
 
 const int mtrPwmResolution = 10;
 const int mtrPwmChannel = 0;
+float mtrCurrentRpm = 0;
 
 void mtrInit() {
     pinMode(mtrDirPin, OUTPUT);
@@ -36,6 +45,7 @@ void mtrInit() {
     digitalWrite(mtrEnPin, HIGH);
 
     // 1/8 microstepping
+    // driverRatio shall be set accordingly
     digitalWrite(mtrMs1Pin, LOW);
     digitalWrite(mtrMs2Pin, LOW);
     
@@ -46,73 +56,76 @@ void mtrInit() {
     ledcAttachPin(mtrStepPin, mtrPwmChannel);
 }
 
-void mtrSet(bool isEnabled, float rpm) {
+void mtrEnable(bool isEnabled) {
     digitalWrite(mtrEnPin, isEnabled ? LOW : HIGH);
-    if (rpm != 0) {
-        if (rpm < 0) {
-            digitalWrite(mtrDirPin, HIGH);
-            rpm = -1 * rpm;
-        } else {
-            digitalWrite(mtrDirPin, LOW);
-        }
-        
-        // TODO convert rmp to freq
-        float mtrPwmfreq = rpm;
-        ledcSetup(mtrPwmChannel, mtrPwmfreq, mtrPwmResolution);
-        ledcWrite(mtrPwmChannel, 0x1FF);
-    } else {
-        ledcWrite(mtrPwmChannel, 0);
-    }
 }
 
-long mtrRampStartTimeInMs = 0;
-long mtrRampDeltaTimeInMs = 0;
-float mtrRampStartFreq = 0;
-float mtrRampDeltaFreq = 0;
-bool mtrIsRampDone = false;
-long mtrRampLastCycleInMs = 0;
+void mtrSetStepRpm(float rpm) {
+    mtrEnable(rpm != 0);
+    float freq = mtrRpmToStepPerSec(rpm);
+    if (freq >= 0) {
+        ledcWriteTone(mtrPwmChannel, freq);
+        digitalWrite(mtrDirPin, HIGH);
+    } else {
+        ledcWriteTone(mtrPwmChannel, -1 * freq);
+        digitalWrite(mtrDirPin, LOW);
+    }
+    mtrCurrentRpm = rpm;
+}
 
-void mtrRampInit(long timeInMs, float fromRmp, float toRmp, float rmpPerSec) {
-    // TODO convert rmp to freq
-    float fromFreq = fromRmp;
-    float toFreq = toRmp;
+uint32_t mtrRampStartTimeInMs = 0;
+uint32_t mtrRampDeltaTimeInMs = 0;
+float mtrRampStartRpm = 0;
+float mtrRampDeltaRmp = 0;
+bool mtrIsRampEnabled = false;
+uint32_t mtrRampLastCycleInMs = 0;
 
+float mtrRpmToStepPerSec(float rmp) {
+    return rmp * (stepPerTurn / 60);
+}
+
+void mtrRampSetup(uint32_t timeInMs, float fromRmp, float toRmp, float rmpPerSec) {
     mtrRampStartTimeInMs = timeInMs;
-    mtrRampStartFreq = fromFreq;
 
-    mtrRampDeltaFreq = toFreq - fromFreq;
-    mtrRampDeltaTimeInMs = (1000 * abs(mtrRampDeltaFreq)) / rmpPerSec;
+    mtrRampStartRpm = fromRmp;
+    mtrRampDeltaRmp = toRmp - fromRmp;
+    mtrRampDeltaTimeInMs = (1000 * abs(mtrRampDeltaRmp)) / rmpPerSec;
 
-    mtrIsRampDone = false;
-    mtrRampLastCycleInMs = 0;
-    mtrSet(true, fromRmp);
+    mtrIsRampEnabled = true;
+    mtrRampLastCycleInMs = timeInMs;
+
+    mtrSetStepRpm(fromRmp);
 
     Serial.print("ramp: ");
-    Serial.print(mtrRampDeltaFreq);
-    Serial.print(" Hz over ");
+    Serial.print(fromRmp);
+    Serial.print(" rmp (");
+    Serial.print(mtrRpmToStepPerSec(fromRmp));
+    Serial.print(" Hz) -> ");
+    Serial.print(toRmp);
+    Serial.print(" rmp (");
+    Serial.print(mtrRpmToStepPerSec(toRmp));
+    Serial.print(" Hz) in ");
     Serial.print(mtrRampDeltaTimeInMs);
     Serial.println(" ms");
 }
 
-void mtrRampCycle(long timeInMs) {
-    if (mtrIsRampDone) {
-        return;
-    }
-    if ((timeInMs - mtrRampLastCycleInMs) < 100) {
-        return;
-    }
+const uint32_t mtrRampMinPeriodInMs = 100;
 
-    float rate = (float)(timeInMs - mtrRampStartTimeInMs) / mtrRampDeltaTimeInMs;
-    float freq = 0;
-    if (rate > 0 && rate < 1) {
-        freq = mtrRampStartFreq + (mtrRampDeltaFreq * rate);
-    } else if (rate >= 1) {
-        freq = mtrRampStartFreq + mtrRampDeltaFreq;
-        mtrIsRampDone = true;
-    }
-    ledcWriteTone(mtrPwmChannel, freq);
+void mtrRampCycle(uint32_t timeInMs) {
+    if (mtrIsRampEnabled && ((timeInMs - mtrRampLastCycleInMs) >= mtrRampMinPeriodInMs)) {
+        float rate = (float)(timeInMs - mtrRampStartTimeInMs) / mtrRampDeltaTimeInMs;
+        float rmp = 0;
+        if (rate > 0 && rate < 1) {
+            rmp = mtrRampStartRpm + (mtrRampDeltaRmp * rate);
+        } else {
+            rmp = mtrRampStartRpm + mtrRampDeltaRmp;
+            mtrIsRampEnabled = false;
+            Serial.println("ramp: done");
+        }
+        mtrSetStepRpm(rmp);
 
-    mtrRampLastCycleInMs = timeInMs;
+        mtrRampLastCycleInMs = timeInMs;
+    }
 }
 
 // button
@@ -157,21 +170,22 @@ void setup() {
     Serial.println("started");
 }
 
-const long logPeriodInMs = 1000;
-long lastLogInMs = 0;
+
+const uint32_t logPeriodInMs = 1000;
+uint32_t lastLogInMs = 0;
 bool isRunning = false;
 
 void loop() {
-    long timeInMs = millis();
+    uint32_t timeInMs = millis();
     btnRead();
 
     if (btnHasSwitched) {
         if (!btnIsPressed) {
             if (isRunning) {
-                mtrSet(false, 0);
+                mtrRampSetup(timeInMs, mtrCurrentRpm, 0, 20);
                 isRunning = false;
             } else {
-                mtrRampInit(timeInMs, 10, 200, 50);
+                mtrRampSetup(timeInMs, mtrCurrentRpm, 20, 20);
                 isRunning = true;
             }
             Serial.print("isRunning ");
@@ -179,18 +193,16 @@ void loop() {
         }
     }
 
-    if (isRunning) {
-        mtrRampCycle(timeInMs);
-    }
+    mtrRampCycle(timeInMs);
 
     if ((timeInMs - lastLogInMs) > logPeriodInMs) {
         Serial.print("[");
         Serial.print(timeInMs);
         Serial.print("]");
+        Serial.print(" rpm ");
+        Serial.print(mtrCurrentRpm);
         Serial.print(" freq ");
-        Serial.print(ledcReadFreq(mtrPwmChannel));
-        Serial.print(" ramp ");
-        Serial.println(!mtrIsRampDone);
+        Serial.println(ledcReadFreq(mtrPwmChannel));
         lastLogInMs += logPeriodInMs;
     }
 
