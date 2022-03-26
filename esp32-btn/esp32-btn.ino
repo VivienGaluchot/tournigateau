@@ -6,6 +6,7 @@
 
 const int btnPin = 23;
 const int ledPin = 22;
+const int potPin = 36;
 
 // stepper
 
@@ -41,6 +42,16 @@ const int stepPerTurn = driverRatio * mtrRatio * gearRatio;
 // ----------------------------------
 // Services
 // ----------------------------------
+
+// utils
+
+float clamp(float in, float min, float max) {
+    if (in < min)
+        return min;
+    if (in > max)
+        return max;
+    return in;
+}
 
 // stepper
 
@@ -165,7 +176,7 @@ void btnInit() {
 void btnRead(uint32_t timeInMs) {
     bool reading = digitalRead(btnPin) == LOW;
     if (reading != bntLastReading) {
-        bntLastDebounceTime = millis();
+        bntLastDebounceTime = timeInMs;
     }
     bntLastReading = reading;
     btnHasSwitched = false;
@@ -177,6 +188,38 @@ void btnRead(uint32_t timeInMs) {
     }
 }
 
+// potentiometer
+
+const uint32_t potDebounceDelay = 50;
+const uint16_t potEps = 10;
+float potAvg = 0;
+uint16_t potLastDebounceTime = 0;
+uint16_t potValue = 0;
+uint16_t potHasChanged = 0;
+float potRate = 0;
+
+void potInit() {
+    pinMode(potPin, ANALOG);
+}
+
+void potRead(uint32_t timeInMs) {
+    potHasChanged = false;
+    uint16_t raw = analogRead(potPin);
+    potAvg = potAvg * 0.9 + raw * 0.1;
+    bool hasDiff = abs(potAvg - potValue) >= potEps;
+    if (hasDiff) {
+        if ((timeInMs - potLastDebounceTime) > potDebounceDelay) {
+            potValue = round(potAvg);
+            potHasChanged = true;
+            potRate = clamp(potValue / 4096.0, 0, 1);
+        } else {
+            // wait to check if the diff is maintained
+        }
+    } else {
+        potLastDebounceTime = timeInMs;
+    }
+}
+
 
 // ----------------------------------
 // Main
@@ -185,6 +228,7 @@ void btnRead(uint32_t timeInMs) {
 void setup() {
     mtrInit();
     btnInit();
+    potInit();
     pinMode(ledPin, OUTPUT);
 
     Serial.begin(115200);
@@ -204,6 +248,7 @@ bool isRunning = false;
 void loop() {
     uint32_t timeInMs = millis();
     btnRead(timeInMs);
+    potRead(timeInMs);
 
     if (btnHasSwitched) {
         if (btnIsPressed) {
@@ -217,6 +262,10 @@ void loop() {
             Serial.print("isRunning ");
             Serial.println(isRunning);
         }
+    }
+    if (potHasChanged) {
+        Serial.print("knob ");
+        Serial.println(potRate);
     }
 
     mtrRampCycle(timeInMs);
@@ -234,5 +283,5 @@ void loop() {
 
     digitalWrite(ledPin, isRunning);
 
-    delay(5);
+    delay(1);
 }
