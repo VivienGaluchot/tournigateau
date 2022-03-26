@@ -5,15 +5,29 @@
 // general io
 
 const int btnPin = 23;
-const int ledPin = 32;
+const int ledPin = 22;
 
 // stepper
 
-const int mtrStepPin = 19;
-const int mtrDirPin = 18;
-const int mtrEnPin = 5;
-const int mtrMs1Pin = 17;
-const int mtrMs2Pin = 16;
+// Driver   Gpio
+// -------------
+// Dir      2
+// Step     0
+// Clk      4
+// Pdn      16
+// Nc       17
+// Ms2      5
+// Ms1      18
+// En       19
+
+const int mtrDirPin = 2;
+const int mtrStepPin = 0;
+const int mtrClkPin = 4;
+const int mtrPdnPin = 16;
+const int mtrNcPin = 17;
+const int mtrMs2Pin = 5;
+const int mtrMs1Pin = 18;
+const int mtrEnPin = 19;
 
 // Turn ratio
 // Signal -> Driver -> Motor -> Gear
@@ -37,22 +51,30 @@ float mtrCurrentRpm = 0;
 void mtrInit() {
     pinMode(mtrDirPin, OUTPUT);
     pinMode(mtrStepPin, OUTPUT);
-    pinMode(mtrEnPin, OUTPUT);
-    pinMode(mtrMs1Pin, OUTPUT);
+    pinMode(mtrClkPin, OUTPUT);
+    pinMode(mtrPdnPin, OUTPUT);
+    pinMode(mtrNcPin, OUTPUT);
     pinMode(mtrMs2Pin, OUTPUT);
+    pinMode(mtrMs1Pin, OUTPUT);
+    pinMode(mtrEnPin, OUTPUT);
 
-    // disable
+    // disable driver
     digitalWrite(mtrEnPin, HIGH);
+    digitalWrite(mtrDirPin, LOW);
 
     // 1/8 microstepping
     // driverRatio shall be set accordingly
     digitalWrite(mtrMs1Pin, LOW);
     digitalWrite(mtrMs2Pin, LOW);
+
+    // default pins
+    digitalWrite(mtrClkPin, LOW);
+    digitalWrite(mtrPdnPin, LOW);
+    digitalWrite(mtrNcPin, LOW);
     
-    // configure PWM
+    // configure PWM pin
     ledcSetup(mtrPwmChannel, 1, mtrPwmResolution);
     ledcWrite(mtrPwmChannel, 0);
-
     ledcAttachPin(mtrStepPin, mtrPwmChannel);
 }
 
@@ -130,20 +152,24 @@ void mtrRampCycle(uint32_t timeInMs) {
 
 // button
 
-const unsigned long bntDebounceDelay = 50;
-unsigned long bntLastDebounceTime = 0;
+const uint32_t bntDebounceDelay = 50;
+uint32_t bntLastDebounceTime = 0;
 bool bntLastReading = false;
 bool btnIsPressed = false;
 bool btnHasSwitched = false;
 
-void btnRead() {
+void btnInit() {
+    pinMode(btnPin, INPUT_PULLUP);
+}
+
+void btnRead(uint32_t timeInMs) {
     bool reading = digitalRead(btnPin) == LOW;
     if (reading != bntLastReading) {
         bntLastDebounceTime = millis();
     }
     bntLastReading = reading;
     btnHasSwitched = false;
-    if ((millis() - bntLastDebounceTime) > bntDebounceDelay) {
+    if ((timeInMs - bntLastDebounceTime) > bntDebounceDelay) {
         if (reading != btnIsPressed) {
             btnHasSwitched = true;
         }
@@ -157,9 +183,9 @@ void btnRead() {
 // ----------------------------------
 
 void setup() {
-    pinMode(ledPin, OUTPUT);
-    pinMode(btnPin, INPUT_PULLUP);
     mtrInit();
+    btnInit();
+    pinMode(ledPin, OUTPUT);
 
     Serial.begin(115200);
     while (!Serial) {
@@ -177,10 +203,10 @@ bool isRunning = false;
 
 void loop() {
     uint32_t timeInMs = millis();
-    btnRead();
+    btnRead(timeInMs);
 
     if (btnHasSwitched) {
-        if (!btnIsPressed) {
+        if (btnIsPressed) {
             if (isRunning) {
                 mtrRampSetup(timeInMs, mtrCurrentRpm, 0, 20);
                 isRunning = false;
