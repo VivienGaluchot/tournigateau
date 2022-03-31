@@ -2,5 +2,5 @@
     "configuration": "PSRAM=disabled,PartitionScheme=default,CPUFreq=240,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,DebugLevel=none",
     "board": "esp32:esp32:esp32",
     "port": "COM5",
-    "sketch": "esp32-btn\\esp32-btn.ino"
+    "sketch": "esp32-tournigateau\\esp32-tournigateau.ino"
 }

@@ -1,3 +1,5 @@
+#include "autom.h"
+
 // ----------------------------------
 // Pins
 // ----------------------------------
@@ -245,6 +247,7 @@ void potRead(uint32_t timeInMs) {
 // Main
 // ----------------------------------
 
+
 void setup() {
     mtrInit();
     btnInit();
@@ -269,6 +272,8 @@ void loop() {
     uint32_t timeInMs = millis();
     btnRead(timeInMs);
     potRead(timeInMs);
+
+    doState();
 
     if (btnHasSwitched) {
         if (btnIsPressed) {

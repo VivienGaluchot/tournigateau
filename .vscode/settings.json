@@ -3,6 +3,6 @@
         "*.html": "html",
         "*.liquid": "liquid",
         "cmath": "cpp",
-        "cstdlib": "cpp"
+        "autom.h": "c"
     }
 }
