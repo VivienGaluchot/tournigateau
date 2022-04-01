@@ -3,6 +3,14 @@
         "*.html": "html",
         "*.liquid": "liquid",
         "cmath": "cpp",
-        "autom.h": "c"
-    }
+        "autom.h": "c",
+        "fstream": "cpp",
+        "iosfwd": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "sstream": "cpp",
+        "streambuf": "cpp"
+    },
+    "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 0}",
+    "editor.formatOnSave": true
 }

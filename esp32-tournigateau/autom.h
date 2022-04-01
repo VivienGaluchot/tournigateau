@@ -1,13 +1,18 @@
 #ifndef AUTOM_H
 #define AUTOM_H
 
+#include <stdint.h>
+
+namespace autom {
+
 // ----------------------------------
 // const - types
 // ----------------------------------
 
 typedef enum {
+    NONE = 0,
     // wait for knob to be reseted
-    INIT = 0,
+    INIT,
     // no rotation
     IDLE,
     // motor speed is driven by the knob
@@ -18,11 +23,16 @@ typedef enum {
     STATE_COUNT
 } state_t;
 
+// ----------------------------------
+// variables
+// ----------------------------------
 
 // ----------------------------------
 // services
 // ----------------------------------
 
-void doState();
+void doCycle(uint32_t timeInMs);
+
+}  // namespace autom
 
 #endif
