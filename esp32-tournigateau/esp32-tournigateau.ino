@@ -56,10 +56,9 @@ void loop() {
         Serial.print(", freq ");
         Serial.println(ledcReadFreq(mtrPwmChannel));
         lastLogInMs += logPeriodInMs;
-
         cycleCount = 0;
     }
-
     cycleCount++;
+
     delay(1);
 }

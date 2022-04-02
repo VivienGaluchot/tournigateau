@@ -19,18 +19,16 @@ const float driverRatio = 16;
 const int stepPerTurn = driverRatio * mtrRatio * gearRatio;
 
 const int mtrPwmResolution = 10;
-const uint32_t mtrRampMinPeriodInMs = 50;
+const uint32_t rampMinPeriodInMs = 50;
 
 // ----------------------------------
 // local variable
 // ----------------------------------
 
-static uint32_t mtrRampStartTimeInMs = 0;
-static uint32_t mtrRampEndTimeInMs = 0;
-static float mtrRampStartRpm = 0;
-static float mtrRampEndRmp = 0;
-static bool mtrIsRampEnabled = false;
-static uint32_t mtrRampLastCycleInMs = 0;
+static float rampTargetRmp = 0;
+static float rampRmpPerSec = 1;
+static bool isRampEnabled = false;
+static uint32_t rampLastCycleInMs = 0;
 
 // ----------------------------------
 // public variable
@@ -63,17 +61,6 @@ static void setFixedRpm(float rpm) {
         digitalWrite(mtrDirPin, LOW);
     }
     currentRpm = rpm;
-}
-
-static void doRampCycle(uint32_t timeInMs) {
-    if (mtrIsRampEnabled && ((timeInMs - mtrRampLastCycleInMs) >= mtrRampMinPeriodInMs)) {
-        float rpm = toolbox::squish(timeInMs, mtrRampStartTimeInMs, mtrRampEndTimeInMs, mtrRampStartRpm, mtrRampEndRmp);
-        if (timeInMs >= mtrRampEndTimeInMs) {
-            mtrIsRampEnabled = false;
-        }
-        setFixedRpm(rpm);
-        mtrRampLastCycleInMs = timeInMs;
-    }
 }
 
 // ----------------------------------
@@ -110,30 +97,28 @@ void initialize() {
     ledcAttachPin(mtrStepPin, mtrPwmChannel);
 }
 
+float toRmpLog = 0;
+
 void doCycle(uint32_t timeInMs) {
-    doRampCycle(timeInMs);
+    // update Ramp
+    if (isRampEnabled) {
+        uint32_t deltaTime = timeInMs - rampLastCycleInMs;
+        if (deltaTime >= rampMinPeriodInMs) {
+            float maxDeltaRmp = (deltaTime * rampRmpPerSec) / 1000.0;
+            float rpm = toolbox::clamp(rampTargetRmp, currentRpm - maxDeltaRmp, currentRpm + maxDeltaRmp);
+            setFixedRpm(rpm);
+            rampLastCycleInMs = timeInMs;
+            if (rpm == rampTargetRmp) {
+                isRampEnabled = false;
+            }
+        }
+    }
 }
 
-void rampSetup(uint32_t timeInMs, float fromRmp, float toRmp, float rmpPerSec) {
-    mtrRampStartRpm = fromRmp;
-    mtrRampEndRmp = toRmp;
-
-    mtrRampStartTimeInMs = timeInMs;
-    mtrRampEndTimeInMs = timeInMs + (1000.0 * abs(toRmp - fromRmp)) / rmpPerSec;
-
-    mtrIsRampEnabled = true;
-
-    // Serial.print("ramp: ");
-    // Serial.print(fromRmp);
-    // Serial.print(" rmp (");
-    // Serial.print(mtrRpmToStepPerSec(fromRmp));
-    // Serial.print(" Hz) -> ");
-    // Serial.print(toRmp);
-    // Serial.print(" rmp (");
-    // Serial.print(mtrRpmToStepPerSec(toRmp));
-    // Serial.print(" Hz) in ");
-    // Serial.print(mtrRampEndTimeInMs - mtrRampStartTimeInMs);
-    // Serial.println(" ms");
+void rampSetup(uint32_t timeInMs, float toRmp, float rmpPerSec) {
+    rampTargetRmp = toRmp;
+    rampRmpPerSec = rmpPerSec;
+    isRampEnabled = true;
 }
 
 }  // namespace mtr

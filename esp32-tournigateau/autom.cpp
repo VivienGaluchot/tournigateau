@@ -68,7 +68,7 @@ static state_t doContinuous(uint32_t timeInMs) {
     }
     if (io::potHasChanged) {
         float rpm = io::potRateCentered * 20;
-        mtr::rampSetup(timeInMs, mtr::currentRpm, rpm, 20);
+        mtr::rampSetup(timeInMs, rpm, 20);
         io::setLed(io::potRateCentered != 0);
     }
     return CONTINUOUS;
@@ -77,6 +77,7 @@ static state_t doContinuous(uint32_t timeInMs) {
 // auto 360
 
 static state_t enterAuto360(uint32_t timeInMs) {
+    io::setLedBlink(100);
     auto360EntryTimeInMs = timeInMs;
 }
 

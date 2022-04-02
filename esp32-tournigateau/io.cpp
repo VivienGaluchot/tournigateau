@@ -76,8 +76,8 @@ static void potRead(uint32_t timeInMs) {
             potHasChanged = true;
             potRate = toolbox::clamp(potValue / 4096.0, 0, 1);
 
-            float pos = toolbox::squish(potRate, 0.40, .95, 0, 1);
-            float neg = toolbox::squish(potRate, 0.30, .05, 0, -1);
+            float pos = toolbox::squish(potRate, 0.50, .95, 0, 1);
+            float neg = toolbox::squish(potRate, 0.40, .05, 0, -1);
             potRateCentered = pos + neg;
         } else {
             // wait to check if the diff is maintained

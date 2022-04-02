@@ -27,7 +27,7 @@ void initialize();
 
 void doCycle(uint32_t timeInMs);
 
-void rampSetup(uint32_t timeInMs, float fromRmp, float toRmp, float rmpPerSec);
+void rampSetup(uint32_t timeInMs, float toRmp, float rmpPerSec);
 
 }  // namespace mtr
 
