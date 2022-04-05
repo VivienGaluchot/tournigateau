@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "blt.h"
 #include "io.h"
 #include "mtr.h"
 
@@ -79,6 +80,7 @@ static state_t doContinuous(uint32_t timeInMs) {
 static state_t enterAuto360(uint32_t timeInMs) {
     io::setLedBlink(100);
     auto360EntryTimeInMs = timeInMs;
+    blt::sendVolumeUp();
 }
 
 static state_t doAuto360(uint32_t timeInMs) {

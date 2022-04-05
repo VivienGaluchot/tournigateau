@@ -1,4 +1,5 @@
 #include "autom.h"
+#include "blt.h"
 #include "io.h"
 #include "mtr.h"
 #include "pins.h"
@@ -24,9 +25,6 @@ uint32_t cycleCount = 0;
 // ----------------------------------
 
 void setup() {
-    mtr::initialize();
-    io::initialize();
-
     Serial.begin(115200);
     while (!Serial) {
         // wait for serial port to connect. Needed for native USB
@@ -35,6 +33,10 @@ void setup() {
     Serial.println("tournigateau ---");
     Serial.print("version ");
     Serial.println(version);
+
+    mtr::initialize();
+    io::initialize();
+    blt::initialize();
 }
 
 void loop() {
