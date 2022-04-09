@@ -22,6 +22,7 @@ static const uint32_t potDebounceDelay = 50;
 
 static uint32_t bntLastDebounceTime = 0;
 static bool bntLastReading = false;
+static uint32_t bntLastPressStartTime = 0;
 
 // potentiometer
 
@@ -41,6 +42,8 @@ static uint32_t lastBlinkTimeInMs = 0;
 
 bool btnIsPressed = false;
 bool btnHasSwitched = false;
+uint32_t btnPressDurationInMs = 0;
+
 uint16_t potValue = 0;
 float potRate = 0;
 float potRateCentered = 0;
@@ -103,10 +106,16 @@ void doCycle(uint32_t timeInMs) {
 
     if (btnHasSwitched) {
         if (btnIsPressed) {
+            bntLastPressStartTime = timeInMs;
             Serial.println("btn on");
         } else {
             Serial.println("btn off");
         }
+    }
+    if (btnIsPressed) {
+        btnPressDurationInMs = timeInMs - bntLastPressStartTime;
+    } else {
+        btnPressDurationInMs = 0;
     }
 
     if (isBlinkEnabled) {

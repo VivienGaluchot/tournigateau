@@ -19,6 +19,8 @@ extern bool btnIsPressed;
 // true when state of the button has changed in the last read
 extern bool btnHasSwitched;
 
+extern uint32_t btnPressDurationInMs;
+
 // value read from the potentiometer in [0,4096]
 extern uint16_t potValue;
 

@@ -30,12 +30,17 @@ static BleKeyboard* keyboard = nullptr;
 
 void initialize() {
     keyboard = new BleKeyboard("Tournigateau", "Petou Company", 100);
+    keyboard->setDelay(50);
     keyboard->begin();
 }
 
 void sendVolumeUp() {
     if (isConnected()) {
-        keyboard->write(KEY_MEDIA_VOLUME_UP);
+        keyboard->releaseAll();
+        delay(20);
+        keyboard->write(KEY_MEDIA_VOLUME_DOWN);
+        delay(20);
+        keyboard->releaseAll();
     }
 }
 

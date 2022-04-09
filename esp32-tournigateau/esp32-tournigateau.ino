@@ -56,7 +56,9 @@ void loop() {
         Serial.print(", rpm ");
         Serial.print(mtr::currentRpm);
         Serial.print(", freq ");
-        Serial.println(ledcReadFreq(mtrPwmChannel));
+        Serial.print(ledcReadFreq(mtrPwmChannel));
+        Serial.print(", angle step ");
+        Serial.println(mtr::rotateCurrentStep);
         lastLogInMs += logPeriodInMs;
         cycleCount = 0;
     }

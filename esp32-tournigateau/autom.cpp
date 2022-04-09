@@ -19,6 +19,8 @@ static const char* state_names[STATE_COUNT] = {
     "CONTINUOUS",
     "AUTO_360"};
 
+static const uint32_t auto360TotalStepCount = 24;
+
 // ----------------------------------
 // local variable
 // ----------------------------------
@@ -26,7 +28,7 @@ static const char* state_names[STATE_COUNT] = {
 static state_t prevState = NONE;
 static state_t state = INIT;
 
-static uint32_t auto360EntryTimeInMs = 0;
+static uint32_t auto360CurrentStep = 0;
 
 // ----------------------------------
 // local services
@@ -79,16 +81,34 @@ static state_t doContinuous(uint32_t timeInMs) {
 
 static state_t enterAuto360(uint32_t timeInMs) {
     io::setLedBlink(100);
-    auto360EntryTimeInMs = timeInMs;
-    blt::sendVolumeUp();
+    auto360CurrentStep = 0;
+    mtr::resetAbsReference();
 }
 
 static state_t doAuto360(uint32_t timeInMs) {
-    if (timeInMs - 3000 > auto360EntryTimeInMs) {
+    if (io::btnPressDurationInMs > 1000) {
+        mtr::stop();
         return INIT;
     }
-    // TODO
-    return AUTO_360;
+    if (mtr::isRotating) {
+        return AUTO_360;
+    }
+    if (auto360CurrentStep < auto360TotalStepCount) {
+        delay(100);
+        blt::sendVolumeUp();
+        delay(100);
+        auto360CurrentStep++;
+        Serial.print("360 step ");
+        Serial.print(auto360CurrentStep);
+        Serial.print(" on ");
+        Serial.println(auto360TotalStepCount);
+        float angleInTurn = (float)auto360CurrentStep / (float)auto360TotalStepCount;
+        mtr::startRotateToAbs(angleInTurn);
+        return AUTO_360;
+    } else {
+        mtr::stop();
+        return INIT;
+    }
 }
 
 // ----------------------------------
